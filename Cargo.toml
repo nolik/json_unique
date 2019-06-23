@@ -1,0 +1,9 @@
+[package]
+name = "json_unique"
+version = "0.1.0"
+authors = ["nolik <Novik030692!>"]
+edition = "2018"
+
+[dependencies]
+serde_json = "1.0"
+
