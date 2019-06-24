@@ -18,31 +18,37 @@ fn main() {
 
     // Read the file line by line using the lines() iterator from std::io::BufRead.
     for (index, line) in reader.lines().enumerate() {
-        println!("{:?}", index);
+        println!("{:?}", index + 1);
         let line = line.unwrap(); // Ignore errors.
-                                  // Show the line and its number.
-                                  //        println!("{}. {}", index + 1, line);
+        // Show the line and its number.
+        //        println!("{}. {}", index + 1, line);
         let message: Value = serde_json::from_str(&line).unwrap();
-        let apn_prefix = message["msg"]["apn_pr"].as_str();
-        let apn_base = message["msg"]["apn_bs"].as_str();
-        let apn_suffix = message["msg"]["apn_sf"].as_str();
-        let hash: u64 = calculate_hash(&apn_prefix, &apn_base, &apn_suffix);
+        let intr = message["msg"]["intr"].as_bool();
 
-        let vec_of_similar_part = msg_stats.get_mut(&hash);
+        if intr.unwrap() {
+            let apn_prefix = message["msg"]["apn_ref"]["pf"].as_str();
+            let apn_base = message["msg"]["apn_ref"]["bs"].as_str();
+            let apn_suffix = message["msg"]["apn_ref"]["_sf"].as_str();
+            let hier_ref = message["msg"]["hier_cd_ref"].as_str();
+            let hash: u64 = calculate_hash(&apn_prefix, &apn_base, &apn_suffix, &hier_ref);
 
-        match vec_of_similar_part {
-            Some(v) => v.push(line),
-            None => {
-                msg_stats.insert(hash, vec![line]);
+            let vec_of_similar_part = msg_stats.get_mut(&hash);
+
+            match vec_of_similar_part {
+                Some(v) => v.push(line),
+                None => {
+                    msg_stats.insert(hash, vec![line]);
+                }
             }
         }
     }
-    let mut result = msg_stats
+
+    let result = msg_stats
         .values()
         .filter(|vec| vec.len() > 1)
-        .flatten()
-        .collect::<Vec<&String>>();
-    println!("/n duplicated {:?}", result.split_off(3));
+        .flat_map(|vec| &vec[1..])
+        .count();
+    println!("/n duplicated {:?}", result);
 }
 
 //
@@ -52,10 +58,11 @@ fn main() {
 //    msg: String,
 //}
 
-fn calculate_hash<T: Hash>(t: &T, d: &T, c: &T) -> u64 {
+fn calculate_hash<T: Hash>(t: &T, d: &T, c: &T, f: &T) -> u64 {
     let mut s = DefaultHasher::new();
     t.hash(&mut s);
     d.hash(&mut s);
     c.hash(&mut s);
+    f.hash(&mut s);
     s.finish()
 }
